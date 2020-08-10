@@ -1,0 +1,214 @@
+---
+title: "KPMG_CaseData_2020_ID029"
+author: "Daniyal Arif"
+date: "February 13, 2020"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+library(tidyr)
+library(ggplot2)
+library(DT)
+library(dplyr)
+library(lubridate)
+library(hms)
+library(datetime)
+```
+***
+
+#### Setting the Directory 
+
+Place all the raw data/text files in this directory and change the directory if needed (for data sets load as well).
+
+```{r}
+setwd("D:/NHH SEMESTER/double degree/UQ/Thesis NHH/KPMG SWEDEN/Case")
+
+
+```
+
+#### Load the datasets
+
+```{r}
+customer_data <- read.delim("D:/NHH SEMESTER/double degree/UQ/Thesis NHH/KPMG SWEDEN/Case/CaseData_2020_ID029/CustomerData.txt", header = TRUE, sep = "|",stringsAsFactors = FALSE)
+
+item_data <- read.delim("D:/NHH SEMESTER/double degree/UQ/Thesis NHH/KPMG SWEDEN/Case/CaseData_2020_ID029/ItemData.txt", header = TRUE, sep = "|",stringsAsFactors = FALSE)
+
+transaction_data <- read.delim("D:/NHH SEMESTER/double degree/UQ/Thesis NHH/KPMG SWEDEN/Case/CaseData_2020_ID029/TransactionsData.txt", header = TRUE, sep = "|",stringsAsFactors = FALSE)
+```
+
+
+#### Brief look at the Data Tables
+
+```{r}
+head(item_data)    # top rows from item table 
+head(customer_data)    # top rows from customer table 
+head(transaction_data)     # top rows from transaction table 
+
+str(item_data)       # structure of item table 
+dim(item_data)        # dimensions of item table
+
+str(transaction_data)     # structure of transaction table 
+dim(transaction_data)     # dimensions of transaction table 
+
+str(customer_data)      # structure of transaction table 
+dim(customer_data)      # dimensions of transaction table
+```
+
+#### Looking at NA and Blank across the Variables in the data
+
+```{r}
+sapply(transaction_data, function(x) sum(x == " "))
+sapply(item_data, function(x) sum(x == " "))
+sapply(customer_data, function(x) sum(x == " "))
+
+sapply(transaction_data, function(x) sum(is.na(x)))
+sapply(customer_data, function(x) sum(is.na(x)))
+sapply(item_data, function(x) sum(is.na(x)))
+```
+
+#### Looking at Data Inconsistencies in the data
+
+I have commented this down as output gets to lengthy and messy once knit. But I used it in identifying data inconsistencies
+```{r}
+# sapply(transaction_data, function(x) unique(x))
+# sapply(customer_data, function(x) unique(x))
+# sapply(item_data, function(x) unique(x))
+
+# sapply(transaction_data, function(x) table(x))
+# sapply(customer_data, function(x) table(x))
+# sapply(item_data, function(x) table(x))
+```
+
+#### Checking Data Reliability
+
+Just one of the ways of checking Data Reliability is to check if values are unique. 
+
+In the first, I see, that if there is any data inconsistency with USERID in customer and transaction table. I found NA in USERID of transaction table which have to be removed or perhaps inner join. Other that that all UserID values are the same.
+
+```{r}
+trdata_USERID <- transaction_data %>%  arrange(USERID) %>% distinct(USERID) %>%  select(trdata_USERID = USERID)
+trdata_USERID <- na.omit(trdata_USERID)
+cusdata_USERID <- customer_data %>%  arrange(USERID) %>% select(cusdata_USERID = USERID)
+USERID_analysis <- cbind(trdata_USERID,cusdata_USERID)
+table(USERID_analysis[1] == USERID_analysis[2])
+```
+
+In the second, I see, When all the variables from customer table are concatenated, the string formed should be unique. If not, there can be a possibililty of data duplication or data reliability. Here that is done is to check that is the case.
+
+```{r}
+
+data_check_customertable <-paste0(customer_data$GENDER,customer_data$DOB,customer_data$COUNTRY,customer_data$EDUCATION,customer_data$HOBBY)
+length(data_check_customertable)
+data_check_customertable<-as.data.frame(table(data_check_customertable))
+as.data.frame(table(data_check_customertable$Freq==1))
+```
+
+
+#### Columns *UserID* and *ITEM* Analysis (the two columns that can be used as keys to join)
+
+User ID found in customer and transaction table. The variable availabilty of NA or Blank space in the two tables
+```{r}
+sum(!complete.cases(customer_data$USERID)) == sum(!complete.cases(transaction_data$USERID))
+sum(!complete.cases(customer_data$USERID))
+sum(!complete.cases(transaction_data$USERID))
+
+head(table(unique(customer_data$USERID) %in% unique(transaction_data$USERID)))
+```
+
+
+
+```{r}
+sum(!complete.cases(item_data$ITEM)) == sum(!complete.cases(transaction_data$ITEM))
+table(unique(item_data$ITEM) %in% unique(item_data$ITEM))
+
+length(unique(item_data$ITEM)) == length(item_data$ITEM)
+head(table(item_data$ITEM)) # Each item occuring 200 times in the item table
+
+# just a loop to check if the hypothesis that each iem occurs 200 in item table is true
+
+# for (i in 1:length(unique(item_data$ITEM))){
+#   if((table(item_data$ITEM)[i][[1]]) != "200")
+#     {
+#     a = FALSE
+#   }
+#     else{
+#   a = TRUE
+#     }
+# }             
+
+
+```
+
+#### Investigating Item occurence in the Transaction and Item table
+
+```{r}
+trdata_item <- transaction_data %>%  arrange(ITEM) %>% select(trdata_item = ITEM)
+itdata_item <- item_data %>%  arrange(ITEM) %>% select(itdata_item = ITEM)
+item_analysis <- cbind(trdata_item,itdata_item)
+
+head(sapply(item_analysis, function(x) table(x)))
+     
+```
+
+#### Duplicity in ITEM DB
+We know that each item occurs 200 times. So, there should be 200 suppliers for each item for data not to duplicate and repeat. One item with same supplier and all other similar values are occuring repeatedly
+
+```{r}
+item_127521 <- item_data %>%  filter(ITEM == "127521") 
+dup_item_127521 <- paste0(item_127521$ITEM,item_127521$CATEGORY, item_127521$COLOR, item_127521$SUPLID,item_127521$PURCHASEPRICE,item_127521$SALEPRICE)
+head(as.data.frame(table(dup_item_127521)))
+```
+
+
+#### Duplicity in Transaction DB
+Track Number is not unique. One Track number issued to various users
+
+```{r}
+transaction_data %>%  filter(TRACKNO == "300001") %>% select(USERID,TRACKNO)
+```
+
+
+#### Merging the CustomerDB, ItemDB, TransactionDB 
+CustomerDB joins with transactionDB via UserID using UserID in customer table as a primary key. The column contains unique values and can help join the two tables.
+***
+Joining ItemDB with TransactionDB is complicated because there is no unique column to be used a primary key occuring across both the tables. I examined the ItemDB and realized that other than Supplier ID the rest of the columns were same for any item number. Hence, I decided to drop Supply ID to be to merge the table information with TransactionDB. 
+
+
+```{r}
+item_data %>% select(-SUPLID) %>% distinct() %>% dim
+length(unique(item_data$ITEM))
+
+item_data2 <- item_data %>% select(-SUPLID) %>% distinct()
+
+merge_data <- transaction_data %>% inner_join(customer_data, by = "USERID")
+merge_data  <- as.data.frame(merge_data)
+merge_data <- merge_data %>% left_join(item_data2, by = "ITEM")
+
+```
+
+#### The three table were merged. 
+```{r}
+head(merge_data)
+```
+
+#### Since we have SalePrice, Purchaseprice, Quantity, Discount in the same table. Profit variable can thus be made from these by the formula 
+***
+*= (Saleprice X (1 - Discount / 100) - Purchaseprice ) X Quantity*
+
+```{r}
+merge_data <- merge_data %>% mutate(PROFIT = "")
+merge_data$PROFIT <- (as.numeric(merge_data$SALEPRICE)*(1-(as.numeric(merge_data$DISCOUNT)/100))-as.numeric(merge_data$PURCHASEPRICE))*as.numeric(merge_data$QTY)
+
+
+```
+
+#### All the NA cells were made to blank. In the end the merged data can be saved in the directory specifed for analysis in tableau or any other software, if needed.
+
+```{r}
+merge_data[is.na(merge_data)] <- ""
+head(merge_data)
+# write.csv(merge_data,"D:\\NHH SEMESTER\\double degree\\UQ\\Thesis NHH\\KPMG SWEDEN\\Case\\MyDataFinalUpdate.csv")
+```
+
