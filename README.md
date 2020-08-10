@@ -8,4 +8,4 @@ This Project consists of three text data files Customer Data, Item Data, Transac
 *might be asked to re-perform this check in the future. Therefore, consider creating asolution that can be reused for similar clients.*  
 *opportunities can be identified from the data that can provide value to the client.*  
 
-The Analysis Report was prepared in Powerpoint as well as Tableau. 
+The Analysis Report was prepared in Powerpoint as well as Tableau. (*Data was provided by KPMG and is sharable.*)
